@@ -35,12 +35,26 @@ static enum shifts_range {
     fnum_shift = 32,
 } sh_range;
 
+/**
+ * Set limits for hash size.
+ */
+static enum hash_lim {
+    fname_hsize = 211,
+} hlim;
+
+/**
+ * Set limits for some income params,
+ */
+static enum app_limits {
+    fname_lim = 255,
+} a_limits;
+
 /* Set fnum into record <credentials>. */
-static void set_fnum(r_field_t *field, int num);
+static int set_fnum(r_field_t *field, int num);
 static int get_fnum(r_field_t *field);
 
 /* Return hash from current filename. */
-static r_field_t nhash(const char *fname);
+static r_field_t nhash(const char *fname, int maxlen);
 
 /**
  * Fetch current file permissions / mode to
@@ -76,12 +90,49 @@ static union mdata {
     char record[sizeof(struct f_record)];
 } fdata;
 
-void set_fnum(r_field_t *field, int num) {
+/**
+ * Hash-func for testing purposes.
+ */
+r_field_t nhash(const char *fname, int maxlen) {
+    /* TODO: decide about return values / side-effect codes. */
+    int i, m;
+    r_field_t hash = 1;
+    if (fname == NULL)
+        return -hash;
+    for(i = 0; fname[i]; i++) {
+        if (i > maxlen) {
+            /**
+             * we destroy hash-value, because
+             * we know, that a string is bigger than
+             * limit we set. So we would have collision
+             * if we return calculated hash-value.
+             */
+            hash = -1;
+            return hash;
+        }
+        m = (int)fname[i];
+        /* we don`t care about operations order here now. */
+        hash += (((i * m) + (m * m)) * (m + (i * i) * (m * m)));
+        hash *= (i + m);
+    }
+    return (r_field_t)hash / fname_hsize;
+}
+
+/**
+ * We need to have side-effect here, bcs
+ * we can get NULL pointer as a parameter
+ * and we have to inform about.
+ */
+int set_fnum(r_field_t *field, int num) {
+    r_field_t fld;
+    if (field == NULL)
+        return -1;
+    /* we needn`t set value if num is zero. */
     if (num > 0) {
-        r_field_t fld;
         fld = (r_field_t)num << fnum_shift;
         *field = *field | fld;
     }
+    return 1;
 }
 
 int get_fnum(r_field_t *field) {
