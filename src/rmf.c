@@ -1,63 +1,65 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "fifo.h"
+
 /**
  * Env key, for define path to storing
  * files, that we will delete.
  * We`ll make a new dir by: ${HOME}/.<fname>.
  */
-# define HOME_DIR_ENV_KEY "HOME"
+#define HOME_DIR_ENV_KEY "HOME"
 
 /**
  * Define a default value for temp-directory name.
  */
-# define TEMP_FILE_DIR_NAME "/.tmpdir"
+#define TEMP_FILE_DIR_NAME "/.tmpdir"
 
 /**
  * Mask for fetch current file permissions / mode.
  * Mask is 12 bits only: 0000 1111 1111 1111.
  */
-# define DF_PERM_MASK 0x0FFF
+#define DF_PERM_MASK 0x0FFF
 
 /**
  * Define mask for fetching file num from <credentials>.
  */
-# define FNUM_F_MASK 0xFFFFFFFF
+#define FNUM_F_MASK 0xFFFFFFFF
 
 /**
  * Opcodes.
  * Range from 1 to 31 (0x01 -> 0x1F).
  */
-# define OP_NULL        (char)0x00
-# define OP_FINFO       (char)0x01
-# define OP_FDEL        (char)0x02
-# define OP_FREST       (char)0x03
-# define OP_FSTOR       (char)0x04
+#define OP_NULL        (char)0x00
+#define OP_FINFO       (char)0x01
+#define OP_FDEL        (char)0x02
+#define OP_FREST       (char)0x03
+#define OP_FSTOR       (char)0x04
 
 /**
  * applying flag:
  *     0x20 => FOR_ALL;
  *     0x00 => SINGLE_APPL;
  */
-# define APPFL_ALL      (char)0x20
-# define APPFL_SING     (char)0x00
+#define APPFL_ALL      (char)0x20
+#define APPFL_SING     (char)0x00
 
 /**
  * Define opcode parsing errors.
  * <opcode_t> is a signed char and
  * we using values < 0 as err_codes.
  */
-# define OP_ERR_NULL    (char)0x80
-# define OP_REPT_ERR    (char)0x81
+#define OP_ERR_NULL    (char)0x80
+#define OP_REPT_ERR    (char)0x81
 /* Uncnown opcode symbol. */
-# define OP_UNKN_ERR    (char)0x82
+#define OP_UNKN_ERR    (char)0x82
 /**
  * Too much args - if we found sth after
  * op_flags and APPFL_ALL installed.
  * (in this case we don`t agree any args
  * because we apply command to all items)
  */
-# define OP_TMUCH_ERR   (char)0x83
+#define OP_TMUCH_ERR   (char)0x83
 
 /* type, represents a field in .mdf file */
 typedef unsigned long r_field_t;
@@ -132,6 +134,27 @@ union mdata {
     } r_field;
     char record[sizeof(struct f_record)];
 } fdata;
+
+/**
+ * Header for .mdf file.
+ * Size (as a record) = 32 bytes:
+ *      [0 - 23] -> data;
+ *      [23 - 31] -> alignment.
+ */
+union mdata_header {
+    struct hdr {
+        /* max records we can store */
+        unsigned int max_size;
+        /* stored records count */
+        unsigned int r_cnt;
+        /* store limit (bytes) */
+        r_field_t max_bytes;
+        /* current size (bytes) */
+        r_field_t bsize;
+    } h;
+    /* struct repr as a bytes */
+    char h_bytes[sizeof(struct hdr)];
+} fheader;
 
 r_field_t nhash(const char *fname, int maxlen) {
     r_field_t hash = 1, head, tail, m, m_shift;
@@ -223,9 +246,9 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
                 } else if (appl_flg ^ APPFL_SING) {
                     *err = OP_TMUCH_ERR;
                 }
+                /* goto is mush more simple here */
                 goto done;
         }
-        //argv++;
     }
 done:
     return appl_flg | code;
@@ -252,6 +275,10 @@ void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
 
         switch (*arg) {
             case 'a':
+                /**
+                 * If we found one more <a> specifyer
+                 * we`ll raise error (repeated arg).
+                 */
                 if (!(*flg ^ APPFL_ALL)) {
                     *err = OP_REPT_ERR;
                 } else {
@@ -281,14 +308,11 @@ void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
 int main(int argc, const char *argv[]) {
     opcode_t err_t = OP_ERR_NULL, code_t = OP_NULL;
     if (argc == 1) {
-        /* some func that print info and app version. */
         printf("Test msg. App version: 0.1.0\n");
         exit(0);
     }
     code_t = parse_command(++argv, &err_t);
     if (err_t ^ OP_ERR_NULL) {
-        /* error raised */
-        /* some func, that repr error as string / comment */
         printf("ERROR #%d | 0x%02x\n", err_t, err_t);
         exit(1);
     }
