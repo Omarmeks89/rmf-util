@@ -199,7 +199,7 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
     opcode_t appl_flg = APPFL_SING;
     opcode_t code = OP_NULL;
 
-    for(; *argv; ) {
+    for(; *argv; argv++) {
         if (*err ^ OP_ERR_NULL) {
             break;
         }
@@ -225,7 +225,7 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
                 }
                 goto done;
         }
-        argv++;
+        //argv++;
     }
 done:
     return appl_flg | code;
@@ -282,12 +282,14 @@ int main(int argc, const char *argv[]) {
     opcode_t err_t = OP_ERR_NULL, code_t = OP_NULL;
     if (argc == 1) {
         /* some func that print info and app version. */
+        printf("Test msg. App version: 0.1.0\n");
         exit(0);
     }
     code_t = parse_command(++argv, &err_t);
     if (err_t ^ OP_ERR_NULL) {
         /* error raised */
         /* some func, that repr error as string / comment */
+        printf("ERROR #%d | 0x%02x\n", err_t, err_t);
         exit(1);
     }
     printf("#%d | 0x%02x\n", code_t, code_t);
