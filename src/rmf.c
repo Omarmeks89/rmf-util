@@ -24,14 +24,51 @@
  */
 # define FNUM_F_MASK 0xFFFFFFFF
 
+/**
+ * Opcodes.
+ * Range from 1 to 31 (0x01 -> 0x1F).
+ */
+# define OP_NULL        (char)0x00
+# define OP_FINFO       (char)0x01
+# define OP_FDEL        (char)0x02
+# define OP_FREST       (char)0x03
+# define OP_FSTOR       (char)0x04
+
+/**
+ * applying flag:
+ *     0x20 => FOR_ALL;
+ *     0x00 => SINGLE_APPL;
+ */
+# define APPFL_ALL      (char)0x20
+# define APPFL_SING     (char)0x00
+
+/**
+ * Define opcode parsing errors.
+ * <opcode_t> is a signed char and
+ * we using values < 0 as err_codes.
+ */
+# define OP_ERR_NULL    (char)0x80
+# define OP_REPT_ERR    (char)0x81
+/* Uncnown opcode symbol. */
+# define OP_UNKN_ERR    (char)0x82
+/**
+ * Too much args - if we found sth after
+ * op_flags and APPFL_ALL installed.
+ * (in this case we don`t agree any args
+ * because we apply command to all items)
+ */
+# define OP_TMUCH_ERR   (char)0x83
+
 /* type, represents a field in .mdf file */
 typedef unsigned long r_field_t;
+typedef char opcode_t;
 
 /**
  * Ranges for shift masks and
  * install values to wished bits.
  */
 static enum shifts_range {
+    max_h_shift = 31,
     fnum_shift = 32,
 } sh_range;
 
@@ -61,6 +98,12 @@ static r_field_t nhash(const char *fname, int maxlen);
  * store it into a meta-record (.mdf file)
  */
 static int get_fperms(void *fperms);
+static void parse_flag(
+        const char *arg,
+        opcode_t *code,
+        opcode_t *flg,
+        opcode_t *err
+        );
 
 /**
  * Type, that represents any stored file
@@ -76,9 +119,9 @@ static int get_fperms(void *fperms);
  *     i_node: [64 bits]
  *     (num of inode, we use 64 bits here)
  *     size: [64 bits]
- *     (size of stored file (bytes))
+ *     (size of stored file (chars))
  * 
- * Current type size: 8 * 4 = 32 bytes.
+ * Current type size: 8 * 4 = 32 chars.
  */
 static union mdata {
     struct f_record {
@@ -90,31 +133,21 @@ static union mdata {
     char record[sizeof(struct f_record)];
 } fdata;
 
-/**
- * Hash-func for testing purposes.
- */
 r_field_t nhash(const char *fname, int maxlen) {
-    /* TODO: decide about return values / side-effect codes. */
-    int i, m;
-    r_field_t hash = 1;
+    r_field_t hash = 1, head, tail, m, m_shift;
     if (fname == NULL)
-        return -hash;
-    for(i = 0; fname[i]; i++) {
-        if (i > maxlen) {
-            /**
-             * we destroy hash-value, because
-             * we know, that a string is bigger than
-             * limit we set. So we would have collision
-             * if we return calculated hash-value.
-             */
-            hash = -1;
-            return hash;
+        return hash & 0;
+    for(int i = 0; fname[i]; i++) {
+        if (!(i ^ maxlen)) {
+            return hash & 0;
         }
-        m = (int)fname[i];
-        /* we don`t care about operations order here now. */
-        hash += (((i * m) + (m * m)) * (m + (i * i) * (m * m)));
-        hash *= (i + m);
+        m = (r_field_t)fname[i];
+        m_shift = (m ^ 0x07) & (i ^ 0x07);
+        head = ((m << max_h_shift) | ((i ^ m) << 0x0A));
+        tail = m << m_shift;
+        hash += head | tail;
     }
+    hash = hash << (m_shift ^ 0x07);
     return (r_field_t)hash / fname_hsize;
 }
 
@@ -155,4 +188,79 @@ int get_fperms(void *fperms) {
         return -1;
     fld = (r_field_t*)fperms;
     return (int)(*fld & DF_PERM_MASK);
+}
+
+/**
+ * Parse args from CLI.
+ * As result we set opcode or set
+ * na error (if occured).
+ */
+opcode_t parse_command(const char *argv[], opcode_t *err) {
+    opcode_t appl_flg = APPFL_SING;
+    opcode_t code = OP_NULL;
+
+    while ((*argv) && (!*err)) {
+
+        switch (*argv[0]) {
+            case '-':
+                parse_flag(*argv++, &code, &appl_flg, err);
+            default:
+                /* if no other commands was found. */
+                if (!(code ^ OP_NULL)) {
+                    code = OP_FSTOR;
+                } else {
+                    *err = OP_TMUCH_ERR;
+                }
+                break;
+        }
+        argv++;
+    }
+    return appl_flg | code;
+}
+
+/**
+ * Parse flag into opcode,
+ * or set error, if raised.
+ * Avalaible flags syntax:
+ *      -d | -a | -i | -r
+ *      -da | -ia | -ra 
+ *      -ad | -ai | -ar
+ *      -d -a | -i -a | -a -r
+ *      (and reversed order for last line)
+ */
+void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
+
+    while ((*arg) && (!*err)) {
+
+        if ((*code ^ OP_NULL) && (*arg ^ 'a')) {
+            *err = OP_TMUCH_ERR;
+            break;
+        }
+
+        switch (*arg) {
+            case 'a':
+                if (!(*flg ^ APPFL_ALL)) {
+                    *err = OP_REPT_ERR;
+                } else {
+                    *flg = APPFL_ALL;
+                }
+                break;
+            case 'i':
+                *code = OP_FINFO;
+                break;
+            case 'r':
+                *code = OP_FREST;
+                break;
+            case 'd':
+                *code = OP_FDEL;
+                break;
+            default:
+                *err = OP_UNKN_ERR;
+                break;
+        }
+        arg++;
+    }
+    if (*err ^ OP_NULL) {
+        *code = OP_NULL;
+    }
 }
