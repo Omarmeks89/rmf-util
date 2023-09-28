@@ -67,7 +67,7 @@ typedef char opcode_t;
  * Ranges for shift masks and
  * install values to wished bits.
  */
-static enum shifts_range {
+enum shifts_range {
     max_h_shift = 31,
     fnum_shift = 32,
 } sh_range;
@@ -75,30 +75,30 @@ static enum shifts_range {
 /**
  * Set limits for hash size.
  */
-static enum hash_lim {
+enum hash_lim {
     fname_hsize = 211,
 } hlim;
 
 /**
  * Set limits for some income params,
  */
-static enum app_limits {
+enum app_limits {
     fname_lim = 255,
 } a_limits;
 
 /* Set fnum into record <credentials>. */
-static int set_fnum(r_field_t *field, int num);
-static int get_fnum(r_field_t *field);
+int set_fnum(r_field_t *field, int num);
+int get_fnum(r_field_t *field);
 
 /* Return hash from current filename. */
-static r_field_t nhash(const char *fname, int maxlen);
+r_field_t nhash(const char *fname, int maxlen);
 
 /**
  * Fetch current file permissions / mode to
  * store it into a meta-record (.mdf file)
  */
-static int get_fperms(void *fperms);
-static void parse_flag(
+int get_fperms(void *fperms);
+void parse_flag(
         const char *arg,
         opcode_t *code,
         opcode_t *flg,
@@ -123,7 +123,7 @@ static void parse_flag(
  * 
  * Current type size: 8 * 4 = 32 chars.
  */
-static union mdata {
+union mdata {
     struct f_record {
         r_field_t credentials;
         r_field_t nhash;
@@ -199,22 +199,35 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
     opcode_t appl_flg = APPFL_SING;
     opcode_t code = OP_NULL;
 
-    while ((*argv) && (!*err)) {
+    for(; *argv; ) {
+        if (*err ^ OP_ERR_NULL) {
+            break;
+        }
 
         switch (*argv[0]) {
             case '-':
-                parse_flag(*argv++, &code, &appl_flg, err);
+                parse_flag(++*argv, &code, &appl_flg, err);
+                break;
             default:
-                /* if no other commands was found. */
+                /**
+                 * If no command detected, it means that
+                 * we call app without flags and this is
+                 * store command.
+                 *
+                 * If -a flag (apply to all) specified,
+                 * we set an error, bcs this case we
+                 * wont`t get any args.
+                 */
                 if (!(code ^ OP_NULL)) {
                     code = OP_FSTOR;
-                } else {
+                } else if (appl_flg ^ APPFL_SING) {
                     *err = OP_TMUCH_ERR;
                 }
-                break;
+                goto done;
         }
         argv++;
     }
+done:
     return appl_flg | code;
 }
 
@@ -230,7 +243,7 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
  */
 void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
 
-    while ((*arg) && (!*err)) {
+    while ((*arg) && (*err == OP_ERR_NULL)) {
 
         if ((*code ^ OP_NULL) && (*arg ^ 'a')) {
             *err = OP_TMUCH_ERR;
@@ -260,7 +273,25 @@ void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
         }
         arg++;
     }
-    if (*err ^ OP_NULL) {
+    if (*err ^ OP_ERR_NULL) {
         *code = OP_NULL;
     }
 }
+
+int main(int argc, const char *argv[]) {
+    opcode_t err_t = OP_ERR_NULL, code_t = OP_NULL;
+    if (argc == 1) {
+        /* some func that print info and app version. */
+        exit(0);
+    }
+    code_t = parse_command(++argv, &err_t);
+    if (err_t ^ OP_ERR_NULL) {
+        /* error raised */
+        /* some func, that repr error as string / comment */
+        exit(1);
+    }
+    printf("#%d | 0x%02x\n", code_t, code_t);
+    return 0;
+}
+
+
