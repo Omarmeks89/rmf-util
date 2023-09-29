@@ -243,9 +243,7 @@ opcode_t parse_command(const char *argv[], opcode_t *err) {
                  */
                 if (!(code ^ OP_NULL)) {
                     code = OP_FSTOR;
-                } else if (appl_flg ^ APPFL_SING) {
-                    *err = OP_TMUCH_ERR;
-                }
+                } 
                 /* goto is mush more simple here */
                 goto done;
         }
