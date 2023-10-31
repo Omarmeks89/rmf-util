@@ -1,20 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "fifo.h"
-
-/**
- * Env key, for define path to storing
- * files, that we will delete.
- * We`ll make a new dir by: ${HOME}/.<fname>.
- */
-#define HOME_DIR_ENV_KEY "HOME"
-
-/**
- * Define a default value for temp-directory name.
- */
-#define TEMP_FILE_DIR_NAME "/.tmpdir"
-
 /**
  * Mask for fetch current file permissions / mode.
  * Mask is 12 bits only: 0000 1111 1111 1111.
