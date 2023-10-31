@@ -30,6 +30,7 @@
  * Opcodes.
  * Range from 1 to 31 (0x01 -> 0x1F).
  */
+#define OP_MASK        (char)0x1F
 #define OP_NULL        (char)0x00
 #define OP_FINFO       (char)0x01
 #define OP_FDEL        (char)0x02
@@ -75,13 +76,6 @@ enum shifts_range {
 } sh_range;
 
 /**
- * Set limits for hash size.
- */
-enum hash_lim {
-    fname_hsize = 211,
-} hlim;
-
-/**
  * Set limits for some income params,
  */
 enum app_limits {
@@ -91,14 +85,7 @@ enum app_limits {
 /* Set fnum into record <credentials>. */
 int set_fnum(r_field_t *field, int num);
 int get_fnum(r_field_t *field);
-
-/* Return hash from current filename. */
 r_field_t nhash(const char *fname, int maxlen);
-
-/**
- * Fetch current file permissions / mode to
- * store it into a meta-record (.mdf file)
- */
 int get_fperms(void *fperms);
 void parse_flag(
         const char *arg,
@@ -125,15 +112,13 @@ void parse_flag(
  * 
  * Current type size: 8 * 4 = 32 chars.
  */
-union mdata {
-    struct f_record {
-        r_field_t credentials;
-        r_field_t nhash;
-        r_field_t i_node;
-        r_field_t size;
-    } r_field;
-    char record[sizeof(struct f_record)];
-} fdata;
+struct f_record {
+    r_field_t credentials;
+    r_field_t nhash;
+    r_field_t *path_ptr;
+    r_field_t i_node;
+    r_field_t size;
+};
 
 /**
  * Header for .mdf file.
@@ -141,22 +126,18 @@ union mdata {
  *      [0 - 23] -> data;
  *      [23 - 31] -> alignment.
  */
-union mdata_header {
-    struct hdr {
-        /* max records we can store */
-        unsigned int max_size;
-        /* stored records count */
-        unsigned int r_cnt;
-        /* store limit (bytes) */
-        r_field_t max_bytes;
-        /* current size (bytes) */
-        r_field_t bsize;
-    } h;
-    /* struct repr as a bytes */
-    char h_bytes[sizeof(struct hdr)];
-} fheader;
+struct mdf_header {
+    short max_files;                /* max count of files, that app can store. */
+    int max_fsize_bytes;            /* limit for a single file size (bytes) */
+    short store_lim;                /* setted limit for stored files cnt (<= max_files) */
+    unsigned int c_size_bytes;
+    /* will used since v0.1.1 */
+    unsigned long max_vol_bytes;    /* max size (bytes) that app is allowed to store */
+};
 
-r_field_t nhash(const char *fname, int maxlen) {
+/* Produce 64-bit hash value for filename */
+r_field_t
+nhash(const char *fname, int maxlen) {
     r_field_t hash = 1, head, tail, m, m_shift;
     if (fname == NULL)
         return hash & 0;
@@ -171,7 +152,7 @@ r_field_t nhash(const char *fname, int maxlen) {
         hash += head | tail;
     }
     hash = hash << (m_shift ^ 0x07);
-    return (r_field_t)hash / fname_hsize;
+    return (r_field_t)hash;
 }
 
 /**
@@ -179,7 +160,8 @@ r_field_t nhash(const char *fname, int maxlen) {
  * we can get NULL pointer as a parameter
  * and we have to inform about.
  */
-int set_fnum(r_field_t *field, int num) {
+int
+set_fnum(r_field_t *field, int num) {
     r_field_t fld;
     if (field == NULL)
         return -1;
@@ -191,7 +173,8 @@ int set_fnum(r_field_t *field, int num) {
     return 1;
 }
 
-int get_fnum(r_field_t *field) {
+int
+get_fnum(r_field_t *field) {
     r_field_t fld;
     /* Check on null pointer. */
     if (field == NULL) 
@@ -204,7 +187,8 @@ int get_fnum(r_field_t *field) {
  * We don`t sure about size of file permissions in inode.
  * So we use *void to cast that type as unsigned long.
  */
-int get_fperms(void *fperms) {
+int
+get_fperms(void *fperms) {
     /* Check on NULL pointer. */
     r_field_t *fld;
     if (fperms == NULL)
@@ -218,7 +202,8 @@ int get_fperms(void *fperms) {
  * As result we set opcode or set
  * na error (if occured).
  */
-opcode_t parse_command(const char *argv[], opcode_t *err) {
+opcode_t
+parse_command(const char *argv[], opcode_t *err) {
     opcode_t appl_flg = APPFL_SING;
     opcode_t code = OP_NULL;
 
@@ -262,10 +247,12 @@ done:
  *      -d -a | -i -a | -a -r
  *      (and reversed order for last line)
  */
-void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
+void
+parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
 
     while ((*arg) && (*err == OP_ERR_NULL)) {
 
+        /* if we have not null opcode and it`s not 'a' flag - dup args, error */
         if ((*code ^ OP_NULL) && (*arg ^ 'a')) {
             *err = OP_TMUCH_ERR;
             break;
@@ -298,24 +285,42 @@ void parse_flag(const char *arg, opcode_t *code, opcode_t *flg, opcode_t *err) {
         }
         arg++;
     }
+    /* if error detected - do nothing (OP_NULL) */
     if (*err ^ OP_ERR_NULL) {
         *code = OP_NULL;
     }
 }
 
+/* main loop & opcodes parsing */
 int main(int argc, const char *argv[]) {
-    opcode_t err_t = OP_ERR_NULL, code_t = OP_NULL;
+    opcode_t err_t = OP_ERR_NULL, code_t = OP_NULL, op;
     if (argc == 1) {
         printf("Test msg. App version: 0.1.0\n");
         exit(0);
     }
     code_t = parse_command(++argv, &err_t);
     if (err_t ^ OP_ERR_NULL) {
+        /* call func that print human-readable error info. */
         printf("ERROR #%d | 0x%02x\n", err_t, err_t);
         exit(1);
     }
     printf("#%d | 0x%02x\n", code_t, code_t);
+    /* open .mdf */
+    op = code_t & OP_MASK;
+    switch (op) {
+        case OP_FINFO:
+            /* choose what we gonna do with opcode */
+            break;
+        case OP_FSTOR:
+            break;
+        case OP_FREST:
+            break;
+        case OP_FDEL:
+            break;
+        default:
+            /* unknown opcode */
+            err_t = OP_UNKN_ERR;
+    }
+    /* write data and close .mdf */
     return 0;
 }
-
-

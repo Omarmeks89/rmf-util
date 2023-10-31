@@ -10,9 +10,22 @@ struct fifo_node {
 };
 
 struct fifo_t {
+    int i_cnt;
     int last_idx;
     struct fifo_node *last, *first;
 };
+
+/**
+ * Check items count in fifo and
+ * return 1 if fifo is empty or 0, if fifo
+ * have some elements.
+ *
+ * We`ll use it for check opportunity
+ * for free memory.
+ */
+int empty(struct fifo_t **fifo) {
+    return (*fifo)->i_cnt > 0 ? 0 : 1;
+}
 
 /**
  * Create new fifo.
@@ -26,8 +39,26 @@ struct fifo_t **new_fifo(int last_idx) {
     n_fifo->first = NULL;
     n_fifo->last = NULL;
     n_fifo->last_idx = last_idx;
+    n_fifo->i_cnt = 0;
     ptr = &n_fifo;
     return ptr;
+}
+
+/**
+ * Free memory from top-level fifo struct.
+ * If fifo is empty, we free mem, set ptr
+ * as NULL and return 1 as success.
+ *
+ * In case fifo not empty, return FIFO_NEMPTY 
+ * on fail.
+ */
+int del_fifo(struct fifo_t **fifo) {
+    if (!empty(fifo)) {
+        return FIFO_NEMPTY;
+    }
+    free(*fifo);
+    fifo = NULL;
+    return 1;
 }
 
 void push_back(struct fifo_t **fifo, unsigned long hash, void *record, int *idx) {
@@ -53,6 +84,7 @@ void push_back(struct fifo_t **fifo, unsigned long hash, void *record, int *idx)
         (*fifo)->last = node;
     }
     (*fifo)->last_idx++;
+    (*fifo)->i_cnt++;
     *idx = node->id;
 }
 
@@ -72,6 +104,7 @@ void *pop_front(struct fifo_t **fifo, int *idx) {
     }
     fdata = tmp->fdata;
     *idx = tmp->id;
+    (*fifo)->i_cnt--;
     free(tmp);
     return fdata;
 }
@@ -130,6 +163,7 @@ void *pop_by_hash(struct fifo_t **fifo, unsigned long hash, int *idx) {
             *idx = first->id;
             fdata = first->fdata;
             free(first);
+            (*fifo)->i_cnt--;
             return fdata;
         }
         first = first->next;
