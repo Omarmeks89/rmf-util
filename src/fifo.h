@@ -4,6 +4,12 @@
 /**
  * Specify ptr to fifo node
  */
+
+#ifdef __cplusplus
+extern "C"
+#endif
+
+/* top-level struct to operate with FIFO */
 typedef struct fifo_t **rmf_fifo_t;
 typedef void *dstruct_t;
 
