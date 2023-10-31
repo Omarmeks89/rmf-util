@@ -5,6 +5,18 @@
 extern "C"
 #endif
 
+#include <stdlib.h>
+
+/* Env key, for define path to storing
+ * files, that we will delete.
+ * We`ll make a new dir by: ${HOME}/.<fname>. */
+#define HOME_DIR_ENV_KEY "${HOME}"
+
+/* Define a default value for temp-directory name. */
+#define TEMP_FILE_DIR_NAME "/.tmpdir"
+#define _build_dirpath(_H, DNAME) (_H DNAME)
+#define _alloc_mname_mem(sz) ((char*)malloc(sizeof(char) * (sz + 2)))
+
 struct _FINFO {
     int f_ino;          /* index descriptor no. */
     /* use x & 0x0FFF here to split file permissions */
