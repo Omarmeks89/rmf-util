@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <errno.h>
-#include <fnctl.h>
+#include <fcntl.h>
 
 #define _RMF_ROOT_DIR "/var/lib/rmf"
 #define NAME_SIZE_LIMIT 255
@@ -56,19 +56,26 @@ int addlink(const char *oldpath, const char *newpath) {
 
 # endif           /* _FILE_OFFSET_BITS end */
 
-  /* check on symlink */
-  if (S_ISLNK(*(f_stat->st_mode)) {
-    /* this is symlink, try to follow it */ 
-    lnk_res = linkat(oldpath, newpath, AT_SYMLINK_FOLLOW);
-  } else {
-    lnk_res = linkat(oldpath, newpath);
-  }
-
-  /* may we check on DIR, FIFO, etc? */
+  lnk_res = link(oldpath, newpath);
   if (lnk_res < 0) {
     printf("file <%s> not saved\n by new path: <%s>.\nError %s\n", oldpath, newpath, strerror(errno));
     free(f_stat);
     return -1;
+  }
 
   return 0;
+}
+
+int main(int argc, char *argv[]) {
+    int _lnk_res = 0;
+
+    if (argc < 3) {
+      perror("not enough args");
+      exit(1);
+    }
+    _lnk_res = addlink(argv[1], argv[2]);
+    if (_lnk_res < 0) {
+      exit(1);
+    }
+    return 0;
 }
