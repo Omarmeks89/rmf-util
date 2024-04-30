@@ -14,52 +14,11 @@
 
 int addlink(const char *oldpath, const char *newpath) {
   /* is oldpath symlink? */
-  int stat_res = 0, lnk_res = 0;
-
-# if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64
-  /* this case we schould use stat64 */
-  struct stat64 *f_stat;
-  
-  f_stat = (struct stat64*)calloc(1, sizeof(struct stat64));
-  if (f_stat == NULL) {
-    /* memory was not allocated */
-    perror("memory not allocated");
-    return -1;
-
-  }
-  /* f_stat is a pointer */
-  stat_res = stat64(oldpath, f_stat);
-  if (stat_res < 0) {
-    printf("stat for file <%s> not received. Error %s\n", oldpath, strerror(errno));
-    free(f_stat);
-    return -1;
-  }
-
-# else            /* _FILE_OFFSET_BITS not defined or < 64 */
-
-  /* handle stat if _FILE_OFFSET_BITS is not defined
-   * or it`s lower as 64 */
-  struct stat *f_stat;
-
-  f_stat = (struct stat*)calloc(1, sizeof(struct stat));
-  if (f_stat == NULL) {
-    perror("memory not allocated");
-    return -1;
-  }
-
-  stat_res = stat(oldpath, f_stat);
-  if (stat_res < 0) {
-    printf("stat for file <%s> not received. Error %s\n", oldpath, strerror(errno));
-    free(f_stat);
-    return -1;
-  }
-
-# endif           /* _FILE_OFFSET_BITS end */
+  int lnk_res = 0;
 
   lnk_res = link(oldpath, newpath);
   if (lnk_res < 0) {
-    printf("file <%s> not saved\n by new path: <%s>.\nError %s\n", oldpath, newpath, strerror(errno));
-    free(f_stat);
+    printf("file <%s> not saved.\nError %s\n", oldpath, strerror(errno));
     return -1;
   }
 
@@ -67,14 +26,14 @@ int addlink(const char *oldpath, const char *newpath) {
 }
 
 int main(int argc, char *argv[]) {
-    int _lnk_res = 0;
+    int lnk_res = 0;
 
     if (argc < 3) {
-      perror("not enough args");
+      printf("not enough args\n");
       exit(1);
     }
-    _lnk_res = addlink(argv[1], argv[2]);
-    if (_lnk_res < 0) {
+    lnk_res = addlink(argv[1], "/var/lib/rmi/test.txt");
+    if (lnk_res < 0) {
       exit(1);
     }
     return 0;
