@@ -1,7 +1,7 @@
 DIR := ${CURDIR}
 
 build:
-	gcc -Wall -Werror -Wextra -g -o rmf -std=c99 $(DIR)/src/main.c
+	gcc -Wall -Werror -Wextra -g -o rmf $(DIR)/src/main.c -L/usr/local/lib -lunistring
 
 clear:
 	rm -rf *.txt && rm rmf
