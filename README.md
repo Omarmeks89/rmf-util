@@ -1,23 +1,24 @@
 ### ABOUT
-`rmf` is a small util used to avoid unexpected file deleting.
-It not used a lot of additional memory, only needed to save
-new `inode` pointers.
+`rmf` is a small util to avoid unexpected file deleting (`rm -rf` command).
+This moment is possible to store new files only.
 
-#### Installation
-
-1) Compile executable file:
-```bash
-./build.sh
+### Installation
+- Clone repository in wished directory
+```
+git clone git@github.com:Omarmeks89/rmf-util.git
+```
+- run `make install` command
+```
+make install
 ```
 
-2) Create user and group (as sudo):
-```bash
-./install.sh
+`rmf` installer create working directory by `$HOME/.rmf` path.
+All links will bee stored there
+
+### Using
+
+Save wished file to avoid unexpected deleting
+```
+./rmf text.txt
 ```
 
-#### Uninstall
-
-Run `./uninstall.sh` script. It will remove all created ELF files, users and groups:
-```bash
-./uninstall.sh
-```
