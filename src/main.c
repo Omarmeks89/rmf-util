@@ -9,64 +9,103 @@
 #include <string.h>
 #include <uniconv.h>
 #include <unitypes.h>
+#include <ctype.h>
 
-#define _RMF_ROOT_DIR "/var/lib/rmf"
-#define NAME_SIZE_LIMIT 255
+#include "errors.h"
 
-/* add 1 for '/' and 1 for '\0' */
-#define _ADD_SYMBOLS 2
+#define RMF_ROOT_PATH_TAIL                              "/.rmf"
 
-int print_curruser(void) {
-  uid_t euid = 0;
-  struct passwd *own_pwd;
-  /* is always successfull */
-  euid = geteuid();
-  own_pwd = getpwuid(euid);
-  if (own_pwd == NULL) {
-    printf("no user with euid %ul found. Error: %s\n", euid, strerror(errno));
-    return -1;
-  }
-  printf("process owner: %s\n", own_pwd->pw_name);
-  return 0;
+#define OS_PATH_SEP                                     '/'
+
+#define DEF_LINKPATH_LEN                                 512
+
+void addlink(const char *oldpath, const char *newpath) {
+    handle_err(link(oldpath, newpath), 0, strerror(errno));
 }
 
-int addlink(const char *oldpath, const char *newpath) {
-  int lnk_res = 0;
+void removelink(const char *fpath) {
+    handle_err(unlink(fpath), 0, strerror(errno));
+}
 
-  /* tyr to add linkat;
-   * - detect symlink;
-   * - detect dir (-> error)
-   * - other -> error */
-  lnk_res = link(oldpath, newpath);
-  if (lnk_res < 0) {
-    printf("file <%s> not saved.\nError %s\n", oldpath, strerror(errno));
-    return -1;
-  }
+void set_root_path(char *strbuf) {
+    const char *home_dir = getenv("HOME");
+    handle_null(home_dir, "var 'HOME' not found");
 
-  return 0;
+    size_t path_len = strlen(home_dir);
+    size_t rmf_tail_len = strlen(RMF_ROOT_PATH_TAIL);
+
+    /* 1 - symbol '\0' */
+    if ((path_len + rmf_tail_len + 1) > DEF_LINKPATH_LEN)
+        raise_err("too large root path");
+
+    sprintf(strbuf, "%s%s", home_dir, RMF_ROOT_PATH_TAIL);
+}
+
+void set_link_path(char *buf, char *root_path, char *fname) {
+    size_t root_len = strlen(root_path);
+    size_t fname_len = strlen(fname);
+
+    /* 2 - symbol '/' and '\0' symbol */
+    if ((root_len + fname_len + 2) > DEF_LINKPATH_LEN)
+        raise_err("too large link path");
+
+    sprintf(buf, "%s/%s", root_path, fname);
+}
+
+unsigned long lookup_fname(const char *fpath) {
+    const char *st_path = fpath;
+    unsigned long st_name = 0;
+
+    for (; *fpath; fpath++) {
+
+        if (*fpath == OS_PATH_SEP) { 
+            st_name = (unsigned long) 0;
+            continue;
+        }
+
+        if (st_name == 0) {
+            st_name = (unsigned long) (fpath - st_path);
+        }
+    }
+
+    return st_name;
+}
+
+
+/* create link on new file */
+void create_link(char *fpath) {
+    char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL;
+    unsigned long st_name = 0;
+
+    handle_null(fpath, "no path to file");
+
+    fname = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
+    handle_null(fname, "allocation failed");
+
+    /* clean path and find filename */
+    realpath(fpath, fname);
+    st_name = lookup_fname(fname);
+    fname = fname + st_name;
+
+    /* TODO: make one allocation */
+    strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
+    handle_null(strbuf, "allocation failed");
+    set_root_path(strbuf);
+
+    link_strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
+    handle_null(strbuf, "allocation failed");
+    set_link_path(link_strbuf, strbuf, fpath);
+
+    addlink(fpath, link_strbuf);
+
+    free(link_strbuf);
+    free(strbuf);
 }
 
 int main(int argc, char *argv[]) {
-    int lnk_res = 0;
-    char *locale = NULL;
+    handle_err(argc, 2, "not enough args");
+    handle_null(setlocale(LC_ALL, ""), "locale not set");
 
-    if (argc < 3) {
-      printf("not enough args\n");
-      exit(1);
-    }
-
-    locale = setlocale(LC_CTYPE, NULL);
-    if(locale == NULL) {
-        /* undefined locale - exit(1) */
-        printf("undefined locale <%s>\n", locale);
-        exit(1);
-    }
-    printf("LOCALE: %s\n", locale);
-    printf("_T: %s\n", locale_charset());
-
-    lnk_res = addlink(argv[1], "/var/lib/rmf/test.txt");
-    if (lnk_res < 0) {
-      exit(1);
-    }
+    create_link(argv[1]);
     return 0;
 }
