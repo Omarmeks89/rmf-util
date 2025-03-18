@@ -71,21 +71,28 @@ unsigned long lookup_fname(const char *fpath) {
     return st_name;
 }
 
+char *get_fname(const char *fpath, char *buf) {
+    unsigned long st_name = 0;
+    if ((fpath == NULL) || (buf == NULL))
+        return NULL;
+
+    realpath(fpath, buf);
+    st_name = lookup_fname(buf);
+
+    return buf + st_name;
+}
+
 
 /* create link on new file */
 void create_link(char *fpath) {
     char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL;
-    unsigned long st_name = 0;
-
     handle_null(fpath, "no path to file");
 
     fname = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
     handle_null(fname, "allocation failed");
 
-    /* clean path and find filename */
-    realpath(fpath, fname);
-    st_name = lookup_fname(fname);
-    fname = fname + st_name;
+    fname = get_fname(fpath, fname);
+    handle_null(fname, "error on lookup filename");
 
     /* TODO: make one allocation */
     strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));

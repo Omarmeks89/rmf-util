@@ -27,8 +27,6 @@ install: $(TARGET)
 	@echo ==== RMF INSTALLATION ====
 	@echo create working directory $(APPDIR) ...
 	mkdir -p $(HOME)/.rmf
-	@echo copy binary into $(APPDIR) ...
-	cp $(TARGET) $(APPDIR)/
 	make clear_obj
 	@echo ===== RMF INSTALLED ======
 
@@ -44,4 +42,6 @@ uninstall:
 	@echo ==== RMF UNINSTALL ====
 	@echo remove working directory ...
 	rm -rf $(APPDIR)
+	@echo cleanup ...
+	make clear
 	@echo ===== RMF DELETED =====
