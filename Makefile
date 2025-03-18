@@ -45,3 +45,7 @@ uninstall:
 	@echo cleanup ...
 	make clear
 	@echo ===== RMF DELETED =====
+
+# make unittest
+unittest:
+	@echo ==== RUN TESTS ====

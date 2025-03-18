@@ -27,6 +27,9 @@ void removelink(const char *fpath) {
     handle_err(unlink(fpath), 0, strerror(errno));
 }
 
+/** \fn set_root_path build path to application
+ * root directory (set pointer)
+ * @param strbuf             memory allocated for root path string */
 void set_root_path(char *strbuf) {
     const char *home_dir = getenv("HOME");
     handle_null(home_dir, "var 'HOME' not found");
@@ -41,6 +44,10 @@ void set_root_path(char *strbuf) {
     sprintf(strbuf, "%s%s", home_dir, RMF_ROOT_PATH_TAIL);
 }
 
+/** \fn set_link_path build path for new link
+ * @param buf               memory allocated to store link path
+ * @param root_path         path to application root directory (as link path part)
+ * @param fname             pointer on filename (start symbol) */
 void set_link_path(char *buf, char *root_path, char *fname) {
     size_t root_len = strlen(root_path);
     size_t fname_len = strlen(fname);
@@ -52,6 +59,9 @@ void set_link_path(char *buf, char *root_path, char *fname) {
     sprintf(buf, "%s/%s", root_path, fname);
 }
 
+/** \fn lookup_fname return filename start index
+ * @param fpath             full qualified path to file
+ * @return                  filename start index */
 unsigned long lookup_fname(const char *fpath) {
     const char *st_path = fpath;
     unsigned long st_name = 0;
@@ -71,6 +81,11 @@ unsigned long lookup_fname(const char *fpath) {
     return st_name;
 }
 
+/** \fn get_fname return pointer on filename or
+ * return NULL, if nullpointer provided as an argument
+ * @param fpath             fullpath to file
+ * @param buf               memory allocated for cleaned path
+ * @return                  pointer on filename start symbol (or NULL) */
 char *get_fname(const char *fpath, char *buf) {
     unsigned long st_name = 0;
     if ((fpath == NULL) || (buf == NULL))
@@ -82,8 +97,8 @@ char *get_fname(const char *fpath, char *buf) {
     return buf + st_name;
 }
 
-
-/* create link on new file */
+/** \fn create_link create new hard link on file
+ * @param fpath             path to file (or filename) you want to store */
 void create_link(char *fpath) {
     char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL;
     handle_null(fpath, "no path to file");
@@ -107,6 +122,7 @@ void create_link(char *fpath) {
 
     free(link_strbuf);
     free(strbuf);
+    free(fname);
 }
 
 int main(int argc, char *argv[]) {
