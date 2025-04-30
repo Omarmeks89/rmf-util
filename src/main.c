@@ -4,31 +4,32 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <locale.h>
-#include <pwd.h>
 #include <errno.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "errors.h"
 
-#define RMF_ROOT_PATH_TAIL                              "/.rmf"
+#define RMF_ROOT_PATH_TAIL "/.rmf"
 
-#define OS_PATH_SEP                                     '/'
+#define OS_PATH_SEP '/'
 
-#define DEF_LINKPATH_LEN                                 512
+#define DEF_LINKPATH_LEN 512
 
-void addlink(const char *oldpath, const char *newpath) {
+void addlink(const char *oldpath, const char *newpath)
+{
     handle_err(link(oldpath, newpath), 0, strerror(errno));
 }
 
-void removelink(const char *fpath) {
+void removelink(const char *fpath)
+{
     handle_err(unlink(fpath), 0, strerror(errno));
 }
 
 /** \fn set_root_path build path to application
  * root directory (set pointer)
  * @param strbuf             memory allocated for root path string */
-void set_root_path(char *strbuf) {
+void set_root_path(char *strbuf)
+{
     const char *home_dir = getenv("HOME");
     handle_null(home_dir, "var 'HOME' not found");
 
@@ -39,40 +40,45 @@ void set_root_path(char *strbuf) {
     if ((path_len + rmf_tail_len + 1) > DEF_LINKPATH_LEN)
         raise_err("too large root path");
 
-    sprintf(strbuf, "%s%s", home_dir, RMF_ROOT_PATH_TAIL);
+    // replaced sprintf on snprintf to check string limits.
+    snprintf(strbuf, DEF_LINKPATH_LEN, "%s%s", home_dir, RMF_ROOT_PATH_TAIL);
 }
 
 /** \fn set_link_path build path for new link
  * @param buf               memory allocated to store link path
  * @param root_path         path to application root directory (as link path part)
  * @param fname             pointer on filename (start symbol) */
-void set_link_path(char *buf, char *root_path, char *fname) {
+void set_link_path(char *buf, char *root_path, char *fname)
+{
     size_t root_len = strlen(root_path);
     size_t fname_len = strlen(fname);
 
     /* 2 - symbol '/' and '\0' symbol */
     if ((root_len + fname_len + 2) > DEF_LINKPATH_LEN)
         raise_err("too large link path");
-
-    sprintf(buf, "%s/%s", root_path, fname);
+    snprintf(buf, DEF_LINKPATH_LEN, "%s/%s", root_path, fname);
 }
 
 /** \fn lookup_fname return filename start index
  * @param fpath             full qualified path to file
  * @return                  filename start index */
-unsigned long lookup_fname(const char *fpath) {
+size_t lookup_fname(const char *fpath)
+{
     const char *st_path = fpath;
-    unsigned long st_name = 0;
+    size_t st_name = 0;
 
-    for (; *fpath; fpath++) {
+    for (; *fpath; fpath++)
+    {
 
-        if (*fpath == OS_PATH_SEP) { 
-            st_name = (unsigned long) 0;
+        if (*fpath == OS_PATH_SEP)
+        {
+            st_name &= 0;
             continue;
         }
 
-        if (st_name == 0) {
-            st_name = (unsigned long) (fpath - st_path);
+        if (st_name == 0)
+        {
+            st_name = (size_t)(fpath - st_path);
         }
     }
 
@@ -84,12 +90,15 @@ unsigned long lookup_fname(const char *fpath) {
  * @param fpath             fullpath to file
  * @param buf               memory allocated for cleaned path
  * @return                  pointer on filename start symbol (or NULL) */
-char *get_fname(const char *fpath, char *buf) {
-    unsigned long st_name = 0;
+char *get_fname(const char *fpath, char *buf)
+{
+    size_t st_name = 0;
+    void *tptr = NULL;
     if ((fpath == NULL) || (buf == NULL))
         return NULL;
 
-    realpath(fpath, buf);
+    tptr = realpath(fpath, buf);
+    handle_null(tptr, "path not resolved");
     st_name = lookup_fname(buf);
 
     return buf + st_name;
@@ -97,33 +106,35 @@ char *get_fname(const char *fpath, char *buf) {
 
 /** \fn create_link create new hard link on file
  * @param fpath             path to file (or filename) you want to store */
-void create_link(char *fpath) {
-    char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL, *_fname = NULL;
+void create_link(char *fpath)
+{
+    char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL, *fname_startptr = NULL;
     handle_null(fpath, "no path to file");
 
-    fname = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
+    fname = (char *)malloc(DEF_LINKPATH_LEN * sizeof(char));
     handle_null(fname, "allocation failed");
 
-    _fname = get_fname(fpath, fname);
-    handle_null(_fname, "error on lookup filename");
+    fname_startptr = get_fname(fpath, fname);
+    handle_null(fname_startptr, "error on lookup filename");
 
     /* TODO: make one allocation */
-    strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
+    strbuf = (char *)malloc(DEF_LINKPATH_LEN * sizeof(char));
     handle_null(strbuf, "allocation failed");
     set_root_path(strbuf);
 
-    link_strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
-    handle_null(strbuf, "allocation failed");
-    set_link_path(link_strbuf, strbuf, fpath);
+    link_strbuf = (char *)malloc(DEF_LINKPATH_LEN * sizeof(char));
+    handle_null(link_strbuf, "allocation failed");
+    set_link_path(link_strbuf, strbuf, fname_startptr);
 
-    addlink(fpath, link_strbuf);
+    removelink(link_strbuf);
 
     free(link_strbuf);
     free(strbuf);
     free(fname);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     handle_err(argc, 2, "not enough args");
     handle_null(setlocale(LC_ALL, ""), "locale not set");
 

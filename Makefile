@@ -7,8 +7,9 @@ APPDIR = $(HOME)/.rmf
 C = gcc
 FLAGS = -g -Wall -Wextra -Werror -Wformat
 
-SRCS = main.c
-OBJS = $(SRCS:.c=.o)
+SRCS = $(SRC_DIR)/main.c
+OBJS = $(SRCS:$(SRC_DIR)/%.c=%.o)
+
 
 .PHONY: all clear
 
@@ -19,16 +20,13 @@ $(TARGET): $(OBJS)
 	$(C) $(FLAGS) -o $@ $^
 
 # source compilation
-%.o: $(SRC_DIR)/main.c $(SRC_DIR)/errors.h
-	$(C) $(FLAGS) -c $<
+main.o: $(SRC_DIR)/main.c $(SRC_DIR)/errors.h
+	$(C) $(FLAGS) -c $< -o $@
 
 # install
 install: $(TARGET)
-	@echo ==== RMF INSTALLATION ====
-	@echo create working directory $(APPDIR) ...
 	mkdir -p $(HOME)/.rmf
 	make clear_obj
-	@echo ===== RMF INSTALLED ======
 
 # cleanup
 clear:
@@ -39,13 +37,5 @@ clear_obj:
 
 # uninstall
 uninstall:
-	@echo ==== RMF UNINSTALL ====
-	@echo remove working directory ...
 	rm -rf $(APPDIR)
-	@echo cleanup ...
 	make clear
-	@echo ===== RMF DELETED =====
-
-# make unittest
-unittest:
-	@echo ==== RUN TESTS ====
