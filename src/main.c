@@ -7,8 +7,6 @@
 #include <pwd.h>
 #include <errno.h>
 #include <string.h>
-#include <uniconv.h>
-#include <unitypes.h>
 #include <ctype.h>
 
 #include "errors.h"
@@ -100,14 +98,14 @@ char *get_fname(const char *fpath, char *buf) {
 /** \fn create_link create new hard link on file
  * @param fpath             path to file (or filename) you want to store */
 void create_link(char *fpath) {
-    char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL;
+    char *strbuf = NULL, *link_strbuf = NULL, *fname = NULL, *_fname = NULL;
     handle_null(fpath, "no path to file");
 
     fname = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
     handle_null(fname, "allocation failed");
 
-    fname = get_fname(fpath, fname);
-    handle_null(fname, "error on lookup filename");
+    _fname = get_fname(fpath, fname);
+    handle_null(_fname, "error on lookup filename");
 
     /* TODO: make one allocation */
     strbuf = (char *) malloc(DEF_LINKPATH_LEN * sizeof(char));
