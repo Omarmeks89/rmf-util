@@ -126,7 +126,7 @@ void create_link(char *fpath)
     handle_null(link_strbuf, "allocation failed");
     set_link_path(link_strbuf, strbuf, fname_startptr);
 
-    removelink(link_strbuf);
+    addlink(fpath, link_strbuf);
 
     free(link_strbuf);
     free(strbuf);
