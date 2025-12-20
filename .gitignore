@@ -1,2 +1,8 @@
+# text files
 *.txt
+
+# object files
+*.o
+
+# binary files
 rmf
