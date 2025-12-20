@@ -8,8 +8,6 @@ extern "C"
 
 #include <stdio.h>
 
-    /* start code */
-
 #define handle_err(rescode, ctrlcode, errmsg) \
     {                                         \
         if ((int)rescode != (int)ctrlcode)    \
@@ -22,10 +20,10 @@ extern "C"
             raise_err(errmsg);   \
     }
 
-#define raise_err(e)                                                                               \
-    {                                                                                              \
-        printf("\033[0;31m%s.%d [func %s]: %s\033[0m\n", __FILE__, __LINE__, __func__, (char *)e); \
-        exit(1);                                                                                   \
+#define raise_err(e)                                \
+    {                                               \
+        printf("\033[0;31m%s\033[0m\n", (char *)e); \
+        exit(1);                                    \
     }
 
 #ifdef __cpuslpus

@@ -6,3 +6,7 @@
 
 # binary files
 rmf
+
+# directories
+.vscode
+.qodo
