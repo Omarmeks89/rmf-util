@@ -5,7 +5,7 @@ SRC_DIR = $(DIR)/src
 APPDIR = $(HOME)/.rmf
 
 C = gcc
-FLAGS = -g -Wall -Wextra -Werror -Wformat -O2
+FLAGS = -g -Wall -Wextra -Werror -Wformat
 
 SRCS = $(SRC_DIR)/main.c
 OBJS = $(SRCS:$(SRC_DIR)/%.c=%.o)
